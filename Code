@@ -1,0 +1,97 @@
+library(rvest)
+library(purrr)
+library(magrittr)
+
+library(tidyverse)  # stringr package for string manipulation
+
+library(stringr)
+
+
+substring_right <- function(x,n){
+  substr(x,n,nchar(x))
+}
+
+url <-"https://www.zillow.com/los-angeles-ca/"
+area <- data.frame()   
+
+for (i in seq(1,20,1)){
+  
+  link1 = paste0(url,i,"_p/")
+  
+  page1 = read_html(link1)
+  
+  # Accessing Zip codes
+  full_address <- page1 %>% 
+    html_nodes(".list-card-addr") %>% 
+    html_text()
+  
+  zip <- full_address %>% str_sub(-5,-1)
+  zipcode <- ifelse(grepl("^[0-9]{5}$",zip),zip,NA)
+  area <- rbind(area,data.frame(full_address,zipcode))
+
+  print(paste("Page",i,":",link1))
+}
+     
+
+
+# zipcode <- read.csv("C:/Users/hkamel/Documents/Data Science course/zipcode.csv")
+zipcode <- area[,2]
+zipcode <- na.omit(zipcode)
+zipcode <- unique(zipcode)
+
+write.csv(area,file='C:/Users/hkamel/Documents/Data Science course/zipcode.csv',row.names = FALSE)    
+
+zillow <- data.frame()
+url1 = 'https://www.zillow.com/homes/'
+
+# Create a for loop to iterate over a list of input search terms, scrape the listings of each, and append the results to a dataframe. 
+for (num in zipcode){
+  
+  link = paste0(url1,num,"_rb/")
+  page = read_html(link)
+
+# Scraping Prices
+sale_price <- page %>% 
+  html_nodes('.list-card-price') %>% 
+  html_text()
+
+# Scraping addresses
+
+address <- page %>% html_nodes('.list-card-addr') %>% html_text()
+
+city <- address %>% strsplit(",") %>% sapply("[",2)
+
+# Zip
+zip1 <- address %>% str_sub(-5,-1)
+zip1 <- ifelse(grepl("^[0-9]{5}$",zip1),zip1,NA)
+
+# Scraping house features
+
+house_param <- page %>% html_nodes('.list-card-details') %>% html_text()
+
+
+# Accessing number of beds
+
+beds <- house_param %>% str_sub(1,1) 
+
+# Accessing number of baths
+
+baths <- house_param %>% strsplit(",") %>% sapply("[",2)
+
+baths <- baths %>% str_sub(1,1)
+
+# Accessing sizes
+
+sqft <- str_match(house_param, "ba,\\s*(.*?)\\s* sqft")[,2]
+
+
+type <- house_param %>% strsplit("-") %>% sapply("[",2)
+type <- type %>% strsplit(" ") %>% sapply("[",2)
+
+zillow <- rbind(zillow,data.frame(address,city,zip1,beds,baths,sqft,sale_price,type))
+
+print(paste(num,":",link))
+
+}
+
+write.csv(zillow,file=paste0('C:/Users/hkamel/Documents/Data Science course/zillow',Sys.Date(),'_2.csv'),row.names = FALSE)
